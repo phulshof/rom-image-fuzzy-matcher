@@ -1,13 +1,5 @@
 TARGET = RomImageFuzzyMatcher
 
-
-#---------------------------------------------------------------------------------
-#  Icon and picture for your game in menu
-#---------------------------------------------------------------------------------
-#   Uncomment and change to your picture name
-#PSP_EBOOT_PIC1 = PIC1.PNG
-#PSP_EBOOT_ICON = ICON0.PNG
-
 #---------------------------------------------------------------------------------
 #  Account for normal c/cpp files
 #---------------------------------------------------------------------------------
@@ -31,8 +23,8 @@ SOURCES = $(CFILES) $(CPPFILES)
 
 INCDIR =  ./ /usr/include 
 
-CFLAGS = -g3 -O0 -Wall 
-CFLAGS += $(addprefix -I,$(INCDIR)) $(RELEASE_FLAGS) 
+CFLAGS = -ggdb -g3 -O0 -Wall 
+CFLAGS += $(addprefix -I,$(INCDIR)) 
 
 CXXFLAGS = $(CFLAGS) 
 
@@ -45,23 +37,9 @@ LIBDIR =
 LDFLAGS =
 LIBS= -lc -lstdc++ \
 			
-#	-lmikmod -lpspaudio -lpspgum -lpspgu -lpsprtc  \
-#	-lpng -lz -lm -lpsppower \
-#	-lpspmp3 \
-#	-lpspwlan \
-#	-lpspusb \
-#	-lpspusbstor \
-#	-lpspgum \
-#	-lpspgu \
-#	-lm \
-#	-lpspumd \
-#	-lpspnet_adhocctl \
-#	-lpspnet_adhocmatching \
-#	-lpspnet_adhoc \
-
-
 # Main target
 $(TARGET): $(OBJS)
+	$(CC) -MMD -MP -MF $*.d $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
 #---------------------------------------------------------------------------------
 #   Release details
@@ -70,17 +48,6 @@ REL_OPTIMIZE = -O2
 export RELEASE_FOLDER = release_dir/TimeCube/
 
 export RELEASE_FLAGS = -DBUILD_TYPE=RELEASE -DRELEASE $(REL_OPTIMIZE)
-
-#  Will create the release in RELEASE_FOLDER and ready for transfer to
-#    PSP
-release: ctags
-	$(MAKE) "CFLAGS= $(addprefix -I,$(INCDIR)) $(RELEASE_FLAGS) \
-				-G0 -Wall -DPSP_BUILD "
-	-mkdir -p $(RELEASE_FOLDER)
-	cp -v EBOOT.PBP $(RELEASE_FOLDER)/
-	$(MAKE) release -C Music
-	$(MAKE) release -C Sounds
-	$(MAKE) release -C Images
 
 rar: ctags
 	rar a $(TARGET).rar $(RELEASE_FOLDER)
@@ -141,6 +108,9 @@ clean-all: clean-deps clean
 
 diff:
 	svn diff --diff-cmd=diffwrap
+
+run: $(TARGET)
+	./$(TARGET)
 
 #-----------------------------------------------------------
 # Ctags flag info:
