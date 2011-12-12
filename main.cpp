@@ -294,6 +294,9 @@ string sanitizeFileName(string filename)
   replaceAll(s, " & ", " and ");
   removeAll(s, "[!]");
   removeAll(s, "(u)");
+  removeAll(s, "(e)");
+  removeAll(s, "(usa)");
+  removeAll(s, "(j)");
   removeAll(s, " a ");
   //removeAll(s, " of ");
   removeAll(s, "-");
@@ -305,8 +308,6 @@ string sanitizeFileName(string filename)
   removeAll(s, ".zip");
   removeAll(s, ".jpg");
   removeAll(s, "!");
-  removeAll(s, "(usa)");
-  removeAll(s, "(j)");
   removeAll(s, "(");
   removeAll(s, ")");
   removeAll(s, ".");
@@ -553,6 +554,13 @@ int main(int argc, char* argv[])
   cout << "Bad matches: " << bad_matches << endl;
 
   //  FileMatch m;
+  //
+  //  m = findBestMatch(
+  //      "Super Mario World",
+  //      art_files);
+  //  printf("Matched: %s: Match distance %d\n", m.filename.c_str(), 
+  //      m.match_distance);
+  //
   //
   //  m = findBestMatch(
   //      "Donkey Kong Country 2 - Diddy's Kong Quest (U) (V1.1) [!].zip", 
