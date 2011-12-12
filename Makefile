@@ -39,7 +39,7 @@ LIBS= -lc -lstdc++ \
 			
 # Main target
 $(TARGET): $(OBJS)
-	$(CC) -MMD -MP -MF $*.d $(CFLAGS) $(OBJS) $(LIBS) -o $@
+	$(CXX) -MMD -MP -MF $*.d $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
 #---------------------------------------------------------------------------------
 #   Release details

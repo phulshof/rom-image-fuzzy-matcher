@@ -7,7 +7,9 @@
 #include <errno.h>
 
 #define ERROR(s, ...) \
+  fprintf(stderr, "----------------------------------------------------\n");\
   fprintf(stderr, "%s:%d ERROR: " s, __FILE__, __LINE__, ##__VA_ARGS__); \
+  fprintf(stderr, "----------------------------------------------------\n");\
   fflush(stderr);
 
 
