@@ -243,6 +243,53 @@ void replaceAll(string& filename, const string toremove,
 
 }
 
+//*****************************************************************************
+/**
+ *   Substitute all text between two characters with @p replacement
+ */
+
+void replaceBetween(string& filename, const char first, const char second,
+    const string replacement)
+{
+
+  unsigned int pos = filename.find(first);
+  unsigned int pos2 = filename.length();
+  if(pos < filename.length())
+  {
+    pos2 = filename.find(second, pos);
+  }
+
+  while(pos != string::npos && pos < filename.length() &&
+      pos2 != string::npos && pos2 < filename.length() &&
+      pos < pos2)
+  {
+
+    filename.replace(pos, pos2-pos+1, replacement);
+
+    // Find the next occurance of the two characters
+    pos = filename.find(first, pos2);
+    pos2 = filename.length();
+    if(pos < filename.length())
+    {
+      pos2 = filename.find(second, pos);
+    }
+
+  }
+
+}
+
+//*****************************************************************************
+/**
+ *   Delete all text between two characters with @p replacement
+ */
+
+void deleteBetween(string& filename, const char first, const char second)
+{
+
+  replaceBetween(filename, first, second, " ");
+
+}
+
 
 //*****************************************************************************
 /**
@@ -292,11 +339,8 @@ string sanitizeFileName(string filename)
   // remove common adjectives etc
   removeAll(s, " the ");
   replaceAll(s, " & ", " and ");
-  removeAll(s, "[!]");
-  removeAll(s, "(u)");
-  removeAll(s, "(e)");
-  removeAll(s, "(usa)");
-  removeAll(s, "(j)");
+  deleteBetween(s, '[', ']');
+  deleteBetween(s, '(', ')');
   removeAll(s, " a ");
   //removeAll(s, " of ");
   removeAll(s, "-");
@@ -311,6 +355,7 @@ string sanitizeFileName(string filename)
   removeAll(s, "(");
   removeAll(s, ")");
   removeAll(s, ".");
+  removeAll(s, ",");
   replaceAll(s, "  ", " ");
   replaceAll(s, " ", "_");
   removeAll(s, "_");
@@ -552,6 +597,13 @@ int main(int argc, char* argv[])
   }
   cout << "Good matches: " << good_matches << endl;
   cout << "Bad matches: " << bad_matches << endl;
+
+  string test = "Donkey Kong () Country 2 - Diddy's Kong [eat it booger] Quest (U) (V1.1) [!].zip";
+  cout << "New file is: " << test << endl;
+  replaceBetween(test, '(', ')', "fart");
+  deleteBetween(test, '[', ']');
+  cout << "New file is: " << test << endl;
+         
 
   //  FileMatch m;
   //
