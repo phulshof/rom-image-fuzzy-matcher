@@ -27,6 +27,7 @@
 
 #include "Error.h"
 #include "LevenshteinDistance.h"
+#include "FileIO.h"
 
 //using namespace boost::filesystem;
 using namespace std;
@@ -42,7 +43,6 @@ const char BOX_ART_DIR_COMMAND = 'b';
 /// Path to where the roms to match against are
 string roms_dir;
 const char ROMS_DIR_COMMAND = 'r';
-
 
 /// Where to place the renamed snapshots
 string renamed_snapshots_dir;
@@ -61,11 +61,11 @@ float perfect_match_threshold = 0.30;
 struct FileMatch
 {
   string filename;
+  string to_match;
   int match_distance;
   bool good_match;
 
 };
-
 
 string toLowerCase(string s1);
 FileMatch findBestMatch(string rom, vector<string> art_files,
@@ -94,7 +94,7 @@ void checkErrors()
 
 //*****************************************************************************
 /**
- *   Grab up all files in a snapshot files in a directory and
+ *   Grab up all files in a directory and
  *     put them in a vector
  */
 
@@ -248,9 +248,11 @@ void replaceAll(string& filename, const string toremove,
  *   Substitute all text between two characters with @p replacement
  */
 
-void replaceBetween(string& filename, const char first, const char second,
+bool replaceBetween(string& filename, const char first, const char second,
     const string replacement)
 {
+
+  bool modified = false;
 
   unsigned int pos = filename.find(first);
   unsigned int pos2 = filename.length();
@@ -264,10 +266,11 @@ void replaceBetween(string& filename, const char first, const char second,
       pos < pos2)
   {
 
+    modified = true;
     filename.replace(pos, pos2-pos+1, replacement);
 
     // Find the next occurance of the two characters
-    pos = filename.find(first, pos2);
+    pos = filename.find(first);
     pos2 = filename.length();
     if(pos < filename.length())
     {
@@ -276,7 +279,72 @@ void replaceBetween(string& filename, const char first, const char second,
 
   }
 
+  return modified;
+
 }
+
+
+//*****************************************************************************
+/**
+ *   Test replaceBetween  function
+ */
+
+void testReplaceBetween()
+{
+
+  string s = "Some crazy[stuff between the brackets] junk[this should be deleted].";
+  string s2 = "Some crazy junk.";
+
+  replaceBetween(s, '[', ']', "");
+  cout << "s is now: " << s << endl;
+  cout << "s2 is now: " << s2 << endl;
+  cout << "Distance: " << caseInsensitiveLevenshteinDistance(s, s2) << endl;
+  cout << "Compare: " << s.compare( s2) << endl;
+  if(s == s2) cout << "The same! " << endl;
+       
+  assert(s == s2);
+
+  s = "Some crazy[stuff between the brackets] junk[this should be deleted].";
+  s2 = "Some crazyiest junkiest.";
+
+  replaceBetween(s, '[', ']', "iest");
+  cout << "s is now: " << s << endl;
+  cout << "s2 is now: " << s2 << endl;
+  cout << "Distance: " << caseInsensitiveLevenshteinDistance(s, s2) << endl;
+  cout << "Compare: " << s.compare( s2) << endl;
+  if(s == s2) cout << "The same! " << endl;
+
+  assert(s == s2);
+
+
+  // Test file name
+
+  string f = "come.crazy.file.and.such.jpg";
+  string f2 = "come.crazy.file.and.such";
+  assert(f2 == getBaseFileName(f));
+
+}
+
+//*****************************************************************************
+/**
+ *   Test Levenshtein distances
+ */
+
+void testLevenshtein()
+{
+
+  assert(
+      levenshteinDistance("sitten", "kitten") == 1);
+  //levenshteinDistance("kitten", "sitting"));
+  printf("Distance %d\n",
+      levenshteinDistance("KYLE", "kyle"));
+  printf("Distance %d\n",
+      levenshteinDistance("mario Kart", "Mario_Kart"));
+  printf("Case Ins Distance %d\n",
+      caseInsensitiveLevenshteinDistance("mario Kart", "Mario_Kart"));
+
+}
+
 
 //*****************************************************************************
 /**
@@ -286,7 +354,7 @@ void replaceBetween(string& filename, const char first, const char second,
 void deleteBetween(string& filename, const char first, const char second)
 {
 
-  replaceBetween(filename, first, second, " ");
+  replaceBetween(filename, first, second, "");
 
 }
 
@@ -407,7 +475,7 @@ FileMatch findBestMatch(string rom, vector<string> art_files)
 
     m = findBestMatch(rom, art_files, true);
   }
-  
+
   return m;
 
 }
@@ -530,27 +598,19 @@ FileMatch findBestMatch(string rom, vector<string> art_files,
     //cout << "Matched: " << rom << " <=> " << best_match.filename << endl;
   }
 
+  best_match.to_match = rom;
   return best_match;
 
 }
 
+
 //*****************************************************************************
-int main(int argc, char* argv[])
+/**
+ *   Perform rough matching
+ */
+
+void performMatching()
 {
-
-  parseArguments(argc, argv);
-
-  assert(0 == minimum(1, 0, 3));
-
-  printf("Distance %d\n",
-      levenshteinDistance("sitting", "kitten"));
-  //levenshteinDistance("kitten", "sitting"));
-  printf("Distance %d\n",
-      levenshteinDistance("KYLE", "kyle"));
-  printf("Distance %d\n",
-      levenshteinDistance("mario Kart", "Mario_Kart"));
-  printf("Case Ins Distance %d\n",
-      caseInsensitiveLevenshteinDistance("mario Kart", "Mario_Kart"));
 
   vector<string> art_files;
   if(box_art_dir.length())
@@ -583,7 +643,6 @@ int main(int argc, char* argv[])
   for(unsigned int i = 0; i < rom_files.size(); i++)
   {
 
-
     FileMatch ma = findBestMatch(rom_files[i], art_files);
     if(ma.good_match)
     {
@@ -598,55 +657,11 @@ int main(int argc, char* argv[])
   cout << "Good matches: " << good_matches << endl;
   cout << "Bad matches: " << bad_matches << endl;
 
-  string test = "Donkey Kong () Country 2 - Diddy's Kong [eat it booger] Quest (U) (V1.1) [!].zip";
+  string test = "Donkey Kong () Country 2 - Diddy's Kong [dumb crap] Quest (U) (V1.1) [!].zip";
   cout << "New file is: " << test << endl;
-  replaceBetween(test, '(', ')', "fart");
+  replaceBetween(test, '(', ')', "stuff...blah");
   deleteBetween(test, '[', ']');
   cout << "New file is: " << test << endl;
-         
-
-  //  FileMatch m;
-  //
-  //  m = findBestMatch(
-  //      "Super Mario World",
-  //      art_files);
-  //  printf("Matched: %s: Match distance %d\n", m.filename.c_str(), 
-  //      m.match_distance);
-  //
-  //
-  //  m = findBestMatch(
-  //      "Donkey Kong Country 2 - Diddy's Kong Quest (U) (V1.1) [!].zip", 
-  //      art_files);
-  //  printf("Matched: %s: Match distance %d\n", m.filename.c_str(), 
-  //      m.match_distance);
-  //
-  //  m = findBestMatch(
-  //      "Joe and Mac - Caveman Ninja (U).zip",
-  //      art_files);
-  //  printf("Matched: %s: Match distance %d\n", m.filename.c_str(), 
-  //      m.match_distance);
-  //
-  //  m = findBestMatch(
-  //      "Mickey Mania (U).zip",
-  //      art_files);
-  //  printf("Matched: %s: Match distance %d\n", m.filename.c_str(), 
-  //      m.match_distance);
-  //
-  //  vector<string> test_art;
-  //  test_art.push_back("Mickey Mania - The Timeless Adventures of Mickey Mouse (USA).png");
-  //  test_art.push_back("Mighty Max (USA).png");
-  //
-  //  m = findBestMatch(
-  //      "Mickey Mania (U).zip",
-  //      test_art);
-  //  printf("Matched: %s: Match distance %d\n", m.filename.c_str(), 
-  //      m.match_distance);
-  //
-  //
-  //  printf("Case Ins Distance Joe mac %d\n",
-  //      caseInsensitiveLevenshteinDistance(
-  //        "Joe and Mac - Caveman Ninja (U).zip",
-  //        "Joe & Mac (USA).png"));
 
 
   printf("Case Ins Distance %d\n",
@@ -659,6 +674,18 @@ int main(int argc, char* argv[])
         "Diddy's Kong Quest (V1.1) (U).zst",
         "Donkey Kong Country 2 - Diddy's Kong Quest (USA) (En,Fr).png"));
 
+}
+
+//*****************************************************************************
+int main(int argc, char* argv[])
+{
+
+  assert(0 == minimum(1, 0, 3));
+  testReplaceBetween();
+
+  parseArguments(argc, argv);
+
+  performMatching();
 
   return EXIT_SUCCESS;
 
