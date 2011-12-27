@@ -1,9 +1,14 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+#include <string>
 
+#include "StringManipulation.h"
 #include "Error.h"
 #include "LevenshteinDistance.h"
+
+using namespace std;
 
 //*****************************************************************************
 /**
@@ -147,5 +152,46 @@ int levenshteinDistance(const char* s1, const char* s2)
 
 }
 
+
+//*****************************************************************************
+/** 
+ *   Case in sensitive compare
+ */
+
+int caseInsensitiveLevenshteinDistance(string s1, string s2)
+{
+
+  string s1_ = s1;
+  string s2_ = s2;
+
+  s1_ = toLowerCase(s1_);
+  s2_ = toLowerCase(s2_);
+
+  return levenshteinDistance((const char*)s1_.c_str(), 
+      (const char*)s2_.c_str());
+
+}
+
+//*****************************************************************************
+/**
+ *   Test Levenshtein distances
+ */
+
+void testLevenshtein()
+{
+
+  assert(
+      levenshteinDistance("sitten", "kitten") == 1);
+  //levenshteinDistance("kitten", "sitting"));
+  assert(
+      levenshteinDistance("KYLE", "kyle") == 4);
+  assert(
+      caseInsensitiveLevenshteinDistance("KYLE", "kyle") == 0);
+  printf("Distance %d\n",
+      levenshteinDistance("mario Kart", "Mario_Kart"));
+  printf("Case Ins Distance %d\n",
+      caseInsensitiveLevenshteinDistance("mario Kart", "Mario_Kart"));
+
+}
 
 

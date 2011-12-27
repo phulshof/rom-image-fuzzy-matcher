@@ -1,5 +1,7 @@
 TARGET = RomImageFuzzyMatcher
 
+export TARGET_STRING = \"$(TARGET)\"
+
 #---------------------------------------------------------------------------------
 #  Account for normal c/cpp files
 #---------------------------------------------------------------------------------
@@ -23,7 +25,7 @@ SOURCES = $(CFILES) $(CPPFILES)
 
 INCDIR =  ./ /usr/include 
 
-CFLAGS = -ggdb -g3 -O0 -Wall 
+CFLAGS = -ggdb -g3 -O0 -Wall -DTARGET_STRING=$(TARGET_STRING)
 CFLAGS += $(addprefix -I,$(INCDIR)) 
 
 CXXFLAGS = $(CFLAGS) 

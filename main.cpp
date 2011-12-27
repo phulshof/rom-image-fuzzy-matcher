@@ -6,10 +6,10 @@
  */
 #define BOOST_FILESYSTEM_NO_DEPRECATED
 
-#include <dirent.h>
 #include <cstdio>
 #include <cstdlib>
 #include <algorithm>
+
 #include <assert.h>
 #include <vector>
 #include <fstream>
@@ -25,6 +25,7 @@
 //#include <boost/regex.hpp>
 //#include <boost/numeric/ublas/matrix.hpp>
 
+#include <StringManipulation.h>
 #include "Error.h"
 #include "LevenshteinDistance.h"
 #include "FileIO.h"
@@ -46,6 +47,7 @@ const char ROMS_DIR_COMMAND = 'r';
 
 /// Where to place the renamed snapshots
 string renamed_snapshots_dir;
+const char RENAMED_ART_DIR_COMMAND = 'd';
 
 /// Where to place the renamed box art
 string renamed_box_art_dir;
@@ -70,6 +72,27 @@ struct FileMatch
 string toLowerCase(string s1);
 FileMatch findBestMatch(string rom, vector<string> art_files,
     bool use_substrings);
+void deleteBetween(string& filename, const char first, const char second);
+
+//*****************************************************************************
+/**
+ *  Print usage and exit
+ */
+
+void printUsageAndExit()
+{
+
+  printf("Usage: " TARGET_STRING 
+      " [-m match_threshold 0.0 to 1.0] -s art_dir_path "
+      "-r rom_dir_path -d dest_renamed_path\n\n");
+
+  printf("Example: " TARGET_STRING 
+      " -m 0.50 -s /home/kyle2/Games/Roms/SNES/SNES_Box_Scans/ "
+      "-r /home/kyle2/Games/Roms/SNES/Roms/ "
+      "-d /home/kyle2/Games/Roms/SNES/SNES_Corrected_box_scans/\n\n");
+
+  exit(1);
+}
 
 //*****************************************************************************
 /**
@@ -94,56 +117,30 @@ void checkErrors()
 
 //*****************************************************************************
 /**
- *   Grab up all files in a directory and
- *     put them in a vector
+ *  Create New Art File (from rom name).
+ *
+ *  @param rom_name the rom name to create matching art file name from
+ *  @param old_art_name use the extension from old art file to create new
+ *  matching file
+ *
+ *   @return new art file name to use
+ *
  */
 
-void getFiles(string dir_path, vector<string>& art_files)
+string getNewArtFileName(string rom_name, string old_art_name)
 {
 
-  DIR* dp = NULL;
-  dp = opendir(dir_path.c_str());
-  if(dp == NULL)
-  {
-     ERROR("opening directory %s, %s\n", dir_path.c_str(),
-         strerror(errno));
-     exit(1);
-  }
-
-  string filepath = "";
-  struct dirent* file;
-  struct stat filestat;
-  while((file = readdir(dp)))
+  if(renamed_snapshots_dir.length() == 0)
   {
 
-    filepath = dir_path + "/" + file->d_name;
-
-    // Skip invalid files
-    if(stat(filepath.c_str(), &filestat))
-    {
-      continue;
-    }
-    // Skip dirs
-    if(S_ISDIR(filestat.st_mode))
-    {
-
-      continue;
-    }
-
-    //cout << "Adding: " << file->d_name << endl;
-    art_files.push_back(file->d_name);
-
+    ERROR("No renamed snapshots dir specified...\n");
+    printUsageAndExit();
   }
 
-  if(art_files.size() == 0)
-  {
+  string art = getBaseFileName(rom_name);
+  string art_extension = getFileExtension(old_art_name);
 
-    ERROR("No files found in directory!\n");
-    exit(1);
-
-  }
-
-  cout << "Packed up: " << art_files.size() << " files" << endl;
+  return art + "." + art_extension;
 
 }
 
@@ -164,6 +161,8 @@ void parseArguments(int argc, char* argv[])
   COMMANDS +=  ROMS_DIR_COMMAND;
   COMMANDS += ":";
   COMMANDS += MATCH_THRESHOLD_COMMAND;
+  COMMANDS += ":";
+  COMMANDS += RENAMED_ART_DIR_COMMAND;
   COMMANDS += ":";
 
   cout << "Parts: " << SNAPSHOT_DIR_COMMAND << 
@@ -193,6 +192,9 @@ void parseArguments(int argc, char* argv[])
           cout << "Box art dir used: " << box_art_dir << endl;
         }
         break;
+      case RENAMED_ART_DIR_COMMAND:
+        renamed_snapshots_dir = optarg;
+        break;
       case ROMS_DIR_COMMAND:
         if(optarg)
             roms_dir = optarg;
@@ -205,192 +207,6 @@ void parseArguments(int argc, char* argv[])
 
 }
 
-//*****************************************************************************
-/** 
- *   Case in sensitive compare
- */
-
-int caseInsensitiveLevenshteinDistance(string s1, string s2)
-{
-
-  string s1_ = s1;
-  string s2_ = s2;
-
-  s1_ = toLowerCase(s1_);
-  s2_ = toLowerCase(s2_);
-
-  return levenshteinDistance((const char*)s1_.c_str(), 
-      (const char*)s2_.c_str());
-
-}
-
-//*****************************************************************************
-/**
- *   Elimate all occurances of a particular string
- */
-
-void replaceAll(string& filename, const string toremove, 
-    const string replacement)
-{
-
-  unsigned int pos = filename.find(toremove);
-  while(pos != string::npos && pos < filename.length())
-  {
-
-    filename.replace(pos,toremove.length(), replacement);
-    pos = filename.find(toremove);
-  }
-
-}
-
-//*****************************************************************************
-/**
- *   Substitute all text between two characters with @p replacement
- */
-
-bool replaceBetween(string& filename, const char first, const char second,
-    const string replacement)
-{
-
-  bool modified = false;
-
-  unsigned int pos = filename.find(first);
-  unsigned int pos2 = filename.length();
-  if(pos < filename.length())
-  {
-    pos2 = filename.find(second, pos);
-  }
-
-  while(pos != string::npos && pos < filename.length() &&
-      pos2 != string::npos && pos2 < filename.length() &&
-      pos < pos2)
-  {
-
-    modified = true;
-    filename.replace(pos, pos2-pos+1, replacement);
-
-    // Find the next occurance of the two characters
-    pos = filename.find(first);
-    pos2 = filename.length();
-    if(pos < filename.length())
-    {
-      pos2 = filename.find(second, pos);
-    }
-
-  }
-
-  return modified;
-
-}
-
-
-//*****************************************************************************
-/**
- *   Test replaceBetween  function
- */
-
-void testReplaceBetween()
-{
-
-  string s = "Some crazy[stuff between the brackets] junk[this should be deleted].";
-  string s2 = "Some crazy junk.";
-
-  replaceBetween(s, '[', ']', "");
-  cout << "s is now: " << s << endl;
-  cout << "s2 is now: " << s2 << endl;
-  cout << "Distance: " << caseInsensitiveLevenshteinDistance(s, s2) << endl;
-  cout << "Compare: " << s.compare( s2) << endl;
-  if(s == s2) cout << "The same! " << endl;
-       
-  assert(s == s2);
-
-  s = "Some crazy[stuff between the brackets] junk[this should be deleted].";
-  s2 = "Some crazyiest junkiest.";
-
-  replaceBetween(s, '[', ']', "iest");
-  cout << "s is now: " << s << endl;
-  cout << "s2 is now: " << s2 << endl;
-  cout << "Distance: " << caseInsensitiveLevenshteinDistance(s, s2) << endl;
-  cout << "Compare: " << s.compare( s2) << endl;
-  if(s == s2) cout << "The same! " << endl;
-
-  assert(s == s2);
-
-
-  // Test file name
-
-  string f = "come.crazy.file.and.such.jpg";
-  string f2 = "come.crazy.file.and.such";
-  assert(f2 == getBaseFileName(f));
-
-}
-
-//*****************************************************************************
-/**
- *   Test Levenshtein distances
- */
-
-void testLevenshtein()
-{
-
-  assert(
-      levenshteinDistance("sitten", "kitten") == 1);
-  //levenshteinDistance("kitten", "sitting"));
-  printf("Distance %d\n",
-      levenshteinDistance("KYLE", "kyle"));
-  printf("Distance %d\n",
-      levenshteinDistance("mario Kart", "Mario_Kart"));
-  printf("Case Ins Distance %d\n",
-      caseInsensitiveLevenshteinDistance("mario Kart", "Mario_Kart"));
-
-}
-
-
-//*****************************************************************************
-/**
- *   Delete all text between two characters with @p replacement
- */
-
-void deleteBetween(string& filename, const char first, const char second)
-{
-
-  replaceBetween(filename, first, second, "");
-
-}
-
-
-//*****************************************************************************
-/**
- *   Elimate all occurances of a particular string
- */
-
-void removeAll(string& filename, const string toremove)
-{
-
-  replaceAll(filename, toremove, "");
-
-}
-
-
-//*****************************************************************************
-/**
- *  String to lower case
- */
-
-string toLowerCase(string s1)
-{
-
-  string s1_ = s1;
-
-  for(unsigned int i = 0; i < s1_.length(); i++)
-  {
-
-    s1_[i] = tolower(s1[i]);
-  }
-
-  return s1_;
-
-}
 
 //*****************************************************************************
 /**
@@ -480,7 +296,6 @@ FileMatch findBestMatch(string rom, vector<string> art_files)
 
 }
 
-
 //*****************************************************************************
 /**
  *  Compare all snapshots to a filename and return best snapshot
@@ -494,16 +309,15 @@ FileMatch findBestMatch(string rom, vector<string> art_files,
   {
 
     ERROR("No art files passed to function...\n");
-    exit(1);
+    printUsageAndExit();
   }
 
   if(rom.size() == 0)
   {
 
     ERROR("No rom file passed to function...\n");
-    exit(1);
+    printUsageAndExit();
   }
-
 
   // Sanitized rom name
   string rom_san = sanitizeFileName(rom);
@@ -567,7 +381,6 @@ FileMatch findBestMatch(string rom, vector<string> art_files,
       //      cout << "Last file: " << best_match.filename 
       //        << " New file: " << temp.filename << endl;
 
-
       best_match = temp;
       best_match.match_distance = temp.match_distance;
 
@@ -603,7 +416,6 @@ FileMatch findBestMatch(string rom, vector<string> art_files,
 
 }
 
-
 //*****************************************************************************
 /**
  *   Perform rough matching
@@ -635,7 +447,7 @@ void performMatching()
   {
 
     ERROR("No Rom files location :(\n");
-    exit(1);
+    printUsageAndExit();
   }
 
   int good_matches = 0;
@@ -644,6 +456,18 @@ void performMatching()
   {
 
     FileMatch ma = findBestMatch(rom_files[i], art_files);
+
+    string new_art_file = getNewArtFileName(rom_files[i], ma.filename);
+
+    // Copy the file and check for errors
+    if(copyFile(roms_dir +"/"+ ma.filename, 
+        renamed_snapshots_dir + "/" + new_art_file) == RETURN_ERROR)
+    {
+
+      printUsageAndExit();
+    }
+
+    // Keep a tally of good and bad matches (using Levenshtein threshold
     if(ma.good_match)
     {
       good_matches++;
@@ -656,23 +480,6 @@ void performMatching()
   }
   cout << "Good matches: " << good_matches << endl;
   cout << "Bad matches: " << bad_matches << endl;
-
-  string test = "Donkey Kong () Country 2 - Diddy's Kong [dumb crap] Quest (U) (V1.1) [!].zip";
-  cout << "New file is: " << test << endl;
-  replaceBetween(test, '(', ')', "stuff...blah");
-  deleteBetween(test, '[', ']');
-  cout << "New file is: " << test << endl;
-
-
-  printf("Case Ins Distance %d\n",
-      caseInsensitiveLevenshteinDistance(
-        "Donkey Kong Country 2 - Diddy's Kong Quest (U) (V1.1) [!].zip", 
-        "Donkey Kong Country 2 - Diddy's Kong Quest (USA) (En,Fr).png"));
-
-  printf("Case Ins Distance %d\n",
-      caseInsensitiveLevenshteinDistance(
-        "Diddy's Kong Quest (V1.1) (U).zst",
-        "Donkey Kong Country 2 - Diddy's Kong Quest (USA) (En,Fr).png"));
 
 }
 
