@@ -10,6 +10,15 @@ enum
   LEVENSTEIN_SUCCESS = 0,
 };
 
+struct FileMatch
+{
+  std::string filename;
+  std::string to_match;
+  int match_distance;
+  bool good_match;
+
+};
+
 
 int levenshteinDistance(const char* s1, const char* s2);
 int minimum(int a, int b, int c);

@@ -58,19 +58,11 @@ const char MATCH_THRESHOLD_COMMAND  = 'm';
 
 /// Perfect match threshhold max match distance to be considered perfect
 ///  match and stop searching
-float perfect_match_threshold = 0.30;
-
-struct FileMatch
-{
-  string filename;
-  string to_match;
-  int match_distance;
-  bool good_match;
-
-};
+float perfect_match_threshold = 0;
+const char PERFECT_MATCH_THRESHOLD_COMMAND  = 'p';
 
 string toLowerCase(string s1);
-FileMatch findBestMatch(string rom, vector<string> art_files,
+FileMatch findBestMatch(string rom, vector<string>& art_files,
     bool use_substrings);
 void deleteBetween(string& filename, const char first, const char second);
 
@@ -83,8 +75,18 @@ void printUsageAndExit()
 {
 
   printf("Usage: " TARGET_STRING 
-      " [-m match_threshold 0.0 to 1.0] -s art_dir_path "
+      " [-m match_threshold 0.0 to 1.0] "
+      " [-p perfect_match_threshold 0.0 to 1.0] "
+      "-s art_dir_path "
       "-r rom_dir_path -d dest_renamed_path\n\n");
+  printf("perfect_match_threshold is used to cull out all other "
+      "art files in the search, within a certain match threshold. "
+      "Default is 0 = \"real\" perfect match distance needed to cull the rest of "
+      "a search.\n\n"
+      "If you don't care about accurate matches, since matching an entire dir of "
+      "art is taking too long, you can increase the perfect match threshold to "
+      "make matching happen faster, at the expense of "
+      "getting less accurate matches.\n\n");
 
   printf("Example: " TARGET_STRING 
       " -m 0.50 -s /home/kyle2/Games/Roms/SNES/SNES_Box_Scans/ "
@@ -164,6 +166,8 @@ void parseArguments(int argc, char* argv[])
   COMMANDS += ":";
   COMMANDS += RENAMED_ART_DIR_COMMAND;
   COMMANDS += ":";
+  COMMANDS += PERFECT_MATCH_THRESHOLD_COMMAND;
+  COMMANDS += ":";
 
   cout << "Parts: " << SNAPSHOT_DIR_COMMAND << 
     BOX_ART_DIR_COMMAND << ROMS_DIR_COMMAND << endl;
@@ -179,6 +183,10 @@ void parseArguments(int argc, char* argv[])
       case SNAPSHOT_DIR_COMMAND:
         if(optarg)
             snapshots_dir = optarg;
+        break;
+      case PERFECT_MATCH_THRESHOLD_COMMAND:
+        if(optarg)
+            perfect_match_threshold = atof(optarg);
         break;
       case MATCH_THRESHOLD_COMMAND:
         if(optarg)
@@ -282,7 +290,7 @@ bool substringOfOther(string s1, string s2)
  *  Compare all snapshots to a filename and return best snapshot
  */
 
-FileMatch findBestMatch(string rom, vector<string> art_files)
+FileMatch findBestMatch(string rom, vector<string>& art_files)
 {
 
   FileMatch m = findBestMatch(rom, art_files, false);
@@ -301,7 +309,7 @@ FileMatch findBestMatch(string rom, vector<string> art_files)
  *  Compare all snapshots to a filename and return best snapshot
  */
 
-FileMatch findBestMatch(string rom, vector<string> art_files,
+FileMatch findBestMatch(string rom, vector<string>& art_files,
     bool use_substrings)
 {
 
@@ -408,7 +416,8 @@ FileMatch findBestMatch(string rom, vector<string> art_files,
   {
 
     best_match.good_match = true;
-    //cout << "Matched: " << rom << " <=> " << best_match.filename << endl;
+    //    cout << "Matched: " << rom << " <=> " << best_match.filename << endl;
+    //    cout << "Distance: " << best_match.match_distance << endl;
   }
 
   best_match.to_match = rom;
@@ -460,7 +469,7 @@ void performMatching()
     string new_art_file = getNewArtFileName(rom_files[i], ma.filename);
 
     // Copy the file and check for errors
-    if(copyFile(roms_dir +"/"+ ma.filename, 
+    if(copyFile(snapshots_dir +"/"+ ma.filename, 
         renamed_snapshots_dir + "/" + new_art_file) == RETURN_ERROR)
     {
 
@@ -489,6 +498,7 @@ int main(int argc, char* argv[])
 
   assert(0 == minimum(1, 0, 3));
   testReplaceBetween();
+  testLevenshtein();
 
   parseArguments(argc, argv);
 

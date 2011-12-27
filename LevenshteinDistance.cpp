@@ -3,12 +3,16 @@
 #include <string.h>
 #include <assert.h>
 #include <string>
+#include <vector>
+#include <iostream>
 
 #include "StringManipulation.h"
 #include "Error.h"
 #include "LevenshteinDistance.h"
-
 using namespace std;
+
+extern FileMatch findBestMatch(string rom, vector<string>& art_files);
+
 
 //*****************************************************************************
 /**
@@ -191,6 +195,53 @@ void testLevenshtein()
       levenshteinDistance("mario Kart", "Mario_Kart"));
   printf("Case Ins Distance %d\n",
       caseInsensitiveLevenshteinDistance("mario Kart", "Mario_Kart"));
+
+  printf("Case Ins Distance %d\n",
+      caseInsensitiveLevenshteinDistance(
+        "Mortal Kombat (USA).png", 
+        "Mortal Kombat (U) [!].zip"
+        ));
+
+
+  printf("Case Ins Distance %d\n",
+      caseInsensitiveLevenshteinDistance(
+        "Mortal Kombat II (USA).png",
+        "Mortal Kombat (U) [!].zip"
+        ));
+
+  printf("Case Ins Distance %d\n",
+      caseInsensitiveLevenshteinDistance(
+        "Mortal_Kombat_2.png",
+        "Mortal Kombat (U) [!].zip"
+        ));
+
+
+  vector<string> art_files;
+
+  art_files.push_back(
+      "Mortal Kombat 3 (USA).png"
+      );
+
+  art_files.push_back(
+        "Mortal_Kombat_2.png"
+      );
+
+
+  art_files.push_back(
+        "Mortal Kombat II (USA).png"
+      );
+
+  art_files.push_back(
+        "Mortal Kombat (USA).png"
+      );
+  FileMatch ma = findBestMatch(
+        "Mortal Kombat (U) [!].zip",
+      art_files
+      );
+
+  cout << "Best match: " << ma.filename << endl;
+  //exit(1);
+
 
 }
 
