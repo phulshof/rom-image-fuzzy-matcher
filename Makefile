@@ -8,7 +8,7 @@ export TARGET_STRING = \"$(TARGET)\"
 CFILES := $(wildcard *.c)
 CPPFILES := $(wildcard *.cpp)
 
-export OBJS += \
+export OBJS = \
        $(CFILES:.c=.o) \
        $(CPPFILES:.cpp=.o) \
 
@@ -25,7 +25,13 @@ SOURCES = $(CFILES) $(CPPFILES)
 
 INCDIR =  ./ /usr/include 
 
+
+ifdef RELEASE
+CFLAGS = -O2 -Wall -DTARGET_STRING=$(TARGET_STRING)
+else
 CFLAGS = -ggdb -g3 -O0 -Wall -DTARGET_STRING=$(TARGET_STRING)
+endif 
+
 CFLAGS += $(addprefix -I,$(INCDIR)) 
 
 CXXFLAGS = $(CFLAGS) 
@@ -38,34 +44,22 @@ ASFLAGS = $(CFLAGS)
 LIBDIR =
 LDFLAGS =
 LIBS= -lc -lstdc++ \
-			
+
 # Main target
 $(TARGET): $(OBJS)
+	@echo " The OBJS: $(OBJS)"
 	$(CXX) -MMD -MP -MF $*.d $(CFLAGS) $(OBJS) $(LIBS) -o $@
 
 #---------------------------------------------------------------------------------
 #   Release details
 #---------------------------------------------------------------------------------
-REL_OPTIMIZE = -O2
-export RELEASE_FOLDER = release_dir/TimeCube/
-
-export RELEASE_FLAGS = -DBUILD_TYPE=RELEASE -DRELEASE $(REL_OPTIMIZE)
+#REL_OPTIMIZE = -O2
+#export RELEASE_FOLDER = release_dir/TimeCube/
+#
+#export RELEASE_FLAGS = -DBUILD_TYPE=RELEASE -DRELEASE $(REL_OPTIMIZE)
 
 rar: ctags
 	rar a $(TARGET).rar $(RELEASE_FOLDER)
-
-#---------------------------------------------------------------------------------
-#    Remake editor tags
-#---------------------------------------------------------------------------------
-tags: $(SOURCES)
-	-ctags -R --sort=yes --c++-kinds=+cdefgmnpstux \
-	  --fields=+iaKS --extra=+q ./ 
-
-ctags: tags
-
-sdk_ctags:
-	-ctags -R -o $(HOME)/.vim/ctags/psp_cpp --sort=yes --c++-kinds=+cdefgmnpstux \
-	  --fields=+iaKS --extra=+q $(INCDIR) $(PSPSDK) $(PSPDIR)
 
 #---------------------------------------------------------------------------------
 # Rules for building cpp files (if you have them)
@@ -86,12 +80,6 @@ sdk_ctags:
 -include $(DEPS)
 
 
-##---------------------------------------------------------------------------------
-##   Maybe for a log target, you could use something like this
-##---------------------------------------------------------------------------------
-#logo.o: logo.raw
-#	bin2o -i logo.raw logo.o logo
-
 .IGNORE: clean
 
 #---------------------------------------------------------------------------------
@@ -103,6 +91,12 @@ clean:
 clean-deps:
 	-rm $(DEPS)
 
+debug:
+	$(MAKE) "DEBUG=1"
+
+release:
+	$(MAKE) "RELEASE=1"
+
 #---------------------------------------------------------------------------------
 #   Clean Deps and all object files
 #---------------------------------------------------------------------------------
@@ -113,6 +107,15 @@ diff:
 
 run: $(TARGET)
 	./$(TARGET)
+
+#---------------------------------------------------------------------------------
+#    Remake editor tags
+#---------------------------------------------------------------------------------
+tags: $(SOURCES)
+	-ctags -R --sort=yes --c++-kinds=+cdefgmnpstux \
+	  --fields=+iaKS --extra=+q ./ 
+
+ctags: tags
 
 #-----------------------------------------------------------
 # Ctags flag info:

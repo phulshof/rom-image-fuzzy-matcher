@@ -61,6 +61,11 @@ const char MATCH_THRESHOLD_COMMAND  = 'm';
 float perfect_match_threshold = 0;
 const char PERFECT_MATCH_THRESHOLD_COMMAND  = 'p';
 
+/// If we should ignore bad matches and FORCE make images anyhow
+bool force_bad_matches = false;
+const char FORCE_BAD_MATCHES_COMMAND  = 'f';
+
+
 string toLowerCase(string s1);
 FileMatch findBestMatch(string rom, vector<string>& art_files,
     bool use_substrings);
@@ -77,6 +82,7 @@ void printUsageAndExit()
   printf("Usage: " TARGET_STRING 
       " [-m match_threshold 0.0 to 1.0] "
       " [-p perfect_match_threshold 0.0 to 1.0] "
+      " [-f force bad matches to be made anyhow]"
       "-s art_dir_path "
       "-r rom_dir_path -d dest_renamed_path\n\n");
   printf("perfect_match_threshold is used to cull out all other "
@@ -87,6 +93,9 @@ void printUsageAndExit()
       "art is taking too long, you can increase the perfect match threshold to "
       "make matching happen faster, at the expense of "
       "getting less accurate matches.\n\n");
+  printf("-f force_bad_matches: will force matches to be created that are below "
+      "the threshold.  Use this if you don't care about a few bad matches, but "
+      "want an art image for all your ROMS anyhow.\n\n");
 
   printf("Example: " TARGET_STRING 
       " -m 0.50 -s /home/kyle2/Games/Roms/SNES/SNES_Box_Scans/ "
@@ -119,7 +128,7 @@ void checkErrors()
 
 //*****************************************************************************
 /**
- *  Create New Art File (from rom name).
+ *  Create New renamed Art File (from rom name).
  *
  *  @param rom_name the rom name to create matching art file name from
  *  @param old_art_name use the extension from old art file to create new
@@ -168,6 +177,7 @@ void parseArguments(int argc, char* argv[])
   COMMANDS += ":";
   COMMANDS += PERFECT_MATCH_THRESHOLD_COMMAND;
   COMMANDS += ":";
+  COMMANDS += FORCE_BAD_MATCHES_COMMAND;
 
   cout << "Parts: " << SNAPSHOT_DIR_COMMAND << 
     BOX_ART_DIR_COMMAND << ROMS_DIR_COMMAND << endl;
@@ -199,6 +209,9 @@ void parseArguments(int argc, char* argv[])
           box_art_dir = optarg;
           cout << "Box art dir used: " << box_art_dir << endl;
         }
+        break;
+      case FORCE_BAD_MATCHES_COMMAND:
+        force_bad_matches  = true;
         break;
       case RENAMED_ART_DIR_COMMAND:
         renamed_snapshots_dir = optarg;
@@ -461,6 +474,7 @@ void performMatching()
 
   int good_matches = 0;
   int bad_matches = 0;
+  int art_created = 0;
   for(unsigned int i = 0; i < rom_files.size(); i++)
   {
 
@@ -468,12 +482,23 @@ void performMatching()
 
     string new_art_file = getNewArtFileName(rom_files[i], ma.filename);
 
-    // Copy the file and check for errors
-    if(copyFile(snapshots_dir +"/"+ ma.filename, 
-        renamed_snapshots_dir + "/" + new_art_file) == RETURN_ERROR)
+    // Only copy good matches (or if forced to)
+    if(force_bad_matches || ma.good_match)
     {
 
-      printUsageAndExit();
+      // Copy the file and check for errors
+      if(copyFile(snapshots_dir +"/"+ ma.filename, 
+            renamed_snapshots_dir + "/" + new_art_file) == RETURN_ERROR)
+      {
+
+        printUsageAndExit();
+      }
+      else
+      {
+
+        art_created++;
+      }
+
     }
 
     // Keep a tally of good and bad matches (using Levenshtein threshold
@@ -489,6 +514,7 @@ void performMatching()
   }
   cout << "Good matches: " << good_matches << endl;
   cout << "Bad matches: " << bad_matches << endl;
+  cout << "Art created: " << art_created << endl;
 
 }
 
